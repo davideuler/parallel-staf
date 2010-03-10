@@ -21,7 +21,14 @@ How about an GUI for Parallel jobs on multi platforms? How to perform one of the
 
 For perform these jobs gracefully and intuitively, I created *Parallel STAF*.
 
-*Features of Parallel STAF*:
+*Changes of Parallel STAF V1.2 *:
+1.Support more than 1 commands submission in OS command mode(when "Run Staf Command" no ticked).
+When type in more than 1 OS commands, only the last one's result is checked, but each commands log would be saved to local folder for each host.
+
+2.Bug fix of thread safety on enabling "Add" and "Delete" host button.
+
+
+*Features of Parallel STAF V1.1 *:
 
 1.Support parallel submission of commands to different STAF host of multi platform.
 
@@ -36,6 +43,7 @@ For perform these jobs gracefully and intuitively, I created *Parallel STAF*.
 6.Log and show execution start/end time on each STAF host.
 
 7.Automatically save user input.
+
 
 
 For rapid development, Parallel STAF is implemented in C#.

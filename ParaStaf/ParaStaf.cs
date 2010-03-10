@@ -337,6 +337,17 @@ namespace ParaStaf
         }
 
         private delegate void TxtHandeler(String text);
+        private delegate void Enabler();
+
+        private void enableAdd()
+        {
+            btnAddHost.Enabled = true;
+        }
+
+        private void enableDelete()
+        {
+            btnDelHost.Enabled = true;
+        }
 
         private void updateText(String text)
         {
@@ -360,6 +371,8 @@ namespace ParaStaf
 
             if(chkStafCommand.Checked) // run STAF command other than OS command: 
             {
+                //TODO : support multi commands:
+
                 String command = txtCommand.Text.Trim(" \r\n".ToCharArray());
 
                 if (!command.Contains("%host")) // run for only 1 user specified host, and return:
@@ -412,8 +425,12 @@ namespace ParaStaf
                         processHost(info);
                     }
 
-                    btnAddHost.Enabled = true;
-                    btnDelHost.Enabled = true;
+//                     btnAddHost.Enabled = true;
+//                     btnDelHost.Enabled = true;
+                    Enabler addEnabler = new Enabler(enableAdd); 
+                    Enabler deleEnabler = new Enabler(enableDelete);
+                    btnAddHost.Invoke(addEnabler, new object[] { });
+                    btnDelHost.Invoke(deleEnabler,new object[]{});
                 });
 
                 processThread.Start();
@@ -453,8 +470,13 @@ namespace ParaStaf
                         threads[--m].Join();
                     }
 
-                    btnAddHost.Enabled = true;
-                    btnDelHost.Enabled = true;
+//                     btnAddHost.Enabled = true;
+//                     btnDelHost.Enabled = true;
+
+                    Enabler addEnabler = new Enabler(enableAdd);
+                    Enabler deleEnabler = new Enabler(enableDelete);
+                    btnAddHost.Invoke(addEnabler, new object[] { });
+                    btnDelHost.Invoke(deleEnabler, new object[] { });
                 });
 
                 invoker.Start();
@@ -668,11 +690,13 @@ namespace ParaStaf
         private bool runSTAFCommandOnHost(String hostAdd, StringBuilder hostRunLog, String folderForHost, String localIP, bool isOk)
         {
             try
-            {
-                String outFile = "C:\\" + String.Format("{0:yyyy-MMdd-HHmmss}", DateTime.Now) + ".staf.txt";
+            {                
+                // when use pure STAF command, do not support multi commands:
 
                 if (chkStafCommand.Checked)
                 {
+                    String outFile = "C:\\" + String.Format("{0:yyyy-MMdd-HHmmss}", DateTime.Now) + ".staf.txt";
+
                     //run simple STAF commands on each host:
                     String command = txtCommand.Text.Trim(" \r\n".ToCharArray());
 
@@ -744,75 +768,73 @@ namespace ParaStaf
                     }
 
                 }
-                else  // parse user input normal command to STAF command :
+                else  // parse user input normal command to STAF command , support multi commands:
+                    // the last commands result would be checked 
                 {
-                    //Run staf command:
-                    // support format 1: 
-                    // staf 192.168.1.103 process start shell command c:\dcerat\case.bat PARMS 551020 
-                    // WAIT STDERRTOSTDOUT RETURNSTDOUT WORKDIR c:\dcerat
-                    // format 2: staf 192.168.1.103 process start shell command "java -version" WAIT
-                    // format 3: staf 192.168.1.103 process start shell command hello.exe WAIT
-                    String inputCmd = txtCommand.Text.Trim(" \r\n".ToCharArray());
-                    String command = inputCmd;  // command to run in STAF command
-                    String parms = "";
-                    String workdir = "";
+                    String stdoutFile = "";
 
-                    // Here because on windows, RETURNSTDOUT not work always, 
-                    // so I use stdout to redirect the command output to a random file under C:\,
-                    // and then get back the output file by STAF command
-                    // START SHELL COMMAND ... STDERRTOSTDOUT RETURNSTDOUT
-                    String stafCmd = "START SHELL COMMAND %cmd %parms STDERRTOSTDOUT stdout %out  WAIT  %workdir ";
+                    String commands = txtCommand.Text.Trim(" \r\n".ToCharArray());
 
-                    //parse command and param from textbox input command:
-                    if (inputCmd.Contains(" "))
+                    StringReader reader = new StringReader(commands);
+
+                    String inputCmd ;
+                    int lines = 0;
+                    while((inputCmd=reader.ReadLine())!=null)
                     {
-                        command = inputCmd.Substring(0, inputCmd.IndexOf(' '));
+                        inputCmd = inputCmd.Trim(" \r\n".ToCharArray());
 
-                        if (inputCmd.Length > inputCmd.IndexOf(' ') + 1)
+                        if (inputCmd == null || inputCmd.Length<=0)
                         {
-                            parms = "PARMS " + inputCmd.Substring(inputCmd.IndexOf(' ') + 1);
+                            continue;
                         }
+
+                        String outFilePrefix = inputCmd;
+                        String namePart = inputCmd;
+
+                        if (inputCmd.IndexOf('\\') > 0 && inputCmd.IndexOf('\\') < inputCmd.Length)
+                        {
+                            namePart = inputCmd.Substring(inputCmd.LastIndexOf('\\') + 1);
+                        }
+
+                        if (namePart.IndexOf(' ') > 0)
+                        {
+                            outFilePrefix = namePart.Substring(0, namePart.IndexOf(' '));
+                        }
+                        else
+                        {
+                            outFilePrefix = namePart;
+                        }
+
+                        stdoutFile = "C:\\" + outFilePrefix+"." + String.Format("{0:yyyy-MMdd-HHmmss}", DateTime.Now) + ".txt";
+                        lines++;
+
+                        // run one OS command on remote STAF host, and redirect output to outFile
+                        String output = processOneOSCommand(hostAdd, hostRunLog, stdoutFile, inputCmd);
+
+                        // copy output file (outFile) to local :
+                        copyFileToLocal(stdoutFile, folderForHost, localIP, hostAdd, hostRunLog);
+
+                        // clean output file on remote STAF host:
+                        String cleanCmdWithoutPrefix = " %host FS DELETE ENTRY %filename CONFIRM";
+                        cleanCmdWithoutPrefix = cleanCmdWithoutPrefix.Replace("%host", hostAdd);
+                        cleanCmdWithoutPrefix = cleanCmdWithoutPrefix.Replace("%filename", stdoutFile);
+                        runStafCmd(cleanCmdWithoutPrefix, null);
+
+                        if (!isOutputOK(output))
+                        {
+                            return false;
+                        }
+
                     }
-
-                    //parse WORKDIR:
-                    if (command.LastIndexOf('\\') > 0)
-                    {
-                        workdir = "WORKDIR " + command.Substring(0, command.LastIndexOf('\\'));
-                    }
-
-                    stafCmd = stafCmd.Replace("%cmd", command);
-                    stafCmd = stafCmd.Replace("%parms", parms);
-                    stafCmd = stafCmd.Replace("%out", outFile);
-
-                    stafCmd = stafCmd.Replace("%workdir", workdir);
- 
-                    // run STAF command on remote STAF host:
-                    String output = runStafCmd(hostAdd, "PROCESS", stafCmd, hostRunLog);
-
-                    if(showSTAFCommand)
-                    {
-                        hostRunLog.Append("STAF cmd response: ").AppendLine().Append(output);
-                        allRunLog.Append("STAF cmd response:").AppendLine().Append(output);
-                        showLog();
-                    }
-
-                    if (!isOutputOK(output))
-                    {
-                        return false;
-                    }
-
+                    
                     //runStafCmd(hostAdd, "DELAY", "DELAY 2s");
 
-                    isOk = checkRegexOnConsoleOutput(outFile, folderForHost, localIP, hostAdd, hostRunLog, isOk);
+                    if (lines > 0)
+                    {
+                        isOk = checkRegexOnConsoleOutput(stdoutFile, folderForHost, localIP, hostAdd, hostRunLog, isOk);
+                    }
 
-                    // clean log file on remote STAF host:
-                    String cleanCmdWithoutPrefix = " %host FS DELETE ENTRY %filename CONFIRM";
-                    cleanCmdWithoutPrefix = cleanCmdWithoutPrefix.Replace("%host", hostAdd);
-                    cleanCmdWithoutPrefix = cleanCmdWithoutPrefix.Replace("%filename", outFile);
-                    runStafCmd(cleanCmdWithoutPrefix, null);
                 }
-
-
 
             }
             catch (Exception ex)
@@ -823,24 +845,65 @@ namespace ParaStaf
             return isOk;
         }
 
+        private String processOneOSCommand(String hostAdd, StringBuilder hostRunLog, String outFile, String inputCmd)
+        {
+            //Run staf command:
+            // support format 1: 
+            // staf 192.168.1.103 process start shell command c:\dcerat\case.bat PARMS 551020 
+            // WAIT STDERRTOSTDOUT RETURNSTDOUT WORKDIR c:\dcerat
+            // format 2: staf 192.168.1.103 process start shell command "java -version" WAIT
+            // format 3: staf 192.168.1.103 process start shell command hello.exe WAIT
+            //String inputCmd = txtCommand.Text.Trim(" \r\n".ToCharArray());
+            String command = inputCmd;  // command to run in STAF command
+            String parms = "";
+            String workdir = "";
+
+            // Here because on windows, RETURNSTDOUT not work always, 
+            // so I use stdout to redirect the command output to a random file under C:\,
+            // and then get back the output file by STAF command
+            // START SHELL COMMAND ... STDERRTOSTDOUT RETURNSTDOUT
+            String stafCmd = "START SHELL COMMAND %cmd %parms STDERRTOSTDOUT stdout %out  WAIT  %workdir ";
+
+            //parse command and param from textbox input command:
+            if (inputCmd.Contains(" "))
+            {
+                command = inputCmd.Substring(0, inputCmd.IndexOf(' '));
+
+                if (inputCmd.Length > inputCmd.IndexOf(' ') + 1)
+                {
+                    parms = "PARMS " + inputCmd.Substring(inputCmd.IndexOf(' ') + 1);
+                }
+            }
+
+            //parse WORKDIR:
+            if (command.LastIndexOf('\\') > 0)
+            {
+                workdir = "WORKDIR " + command.Substring(0, command.LastIndexOf('\\'));
+            }
+
+            stafCmd = stafCmd.Replace("%cmd", command);
+            stafCmd = stafCmd.Replace("%parms", parms);
+            stafCmd = stafCmd.Replace("%out", outFile);
+
+            stafCmd = stafCmd.Replace("%workdir", workdir);
+
+            // run STAF command on remote STAF host:
+            String output = runStafCmd(hostAdd, "PROCESS", stafCmd, hostRunLog);
+
+            if (showSTAFCommand)
+            {
+                hostRunLog.Append("STAF cmd response: ").AppendLine().Append(output);
+                allRunLog.Append("STAF cmd response:").AppendLine().Append(output);
+                showLog();
+            }
+            return output;
+        }
+
         // check Regext on console output, console output of STAF command has been saved to local consoleOutputFile
         private bool checkRegexOnConsoleOutput(String consoleOutputFile, String folderForHost, String localIP, String hostAdd, StringBuilder hostRunLog, bool isOk)
         {
 
-            //get back console output(outFile) to local machine by STAF command :
-            String cmd = "COPY FILE %source TODIRECTORY %directory TOMACHINE %local";
-            cmd = cmd.Replace("%source", consoleOutputFile);
-            cmd = cmd.Replace("%directory", new FileInfo(folderForHost).FullName);
-
-            cmd = cmd.Replace("%local", localIP);
-            String response = runStafCmd(hostAdd, "FS", cmd, hostRunLog);
-
-            if (showSTAFCommand)
-            {
-                hostRunLog.Append("getting back console output response: ").AppendLine().Append(response);
-                allRunLog.Append("getting back console output response: ").AppendLine().Append(response);
-                showLog();
-            }
+/*            copyFileToLocal(consoleOutputFile, folderForHost, localIP, hostAdd, hostRunLog);*/
 
             // check result against console output log:
             String logOnLocal = new FileInfo(folderForHost).FullName + "\\" + new FileInfo(consoleOutputFile).Name;
@@ -885,6 +948,24 @@ namespace ParaStaf
             } 
             
             return isOk;
+        }
+
+        private void copyFileToLocal(String consoleOutputFile, String folderForHost, String localIP, String hostAdd, StringBuilder hostRunLog)
+        {
+            //get back console output(outFile) to local machine by STAF command :
+            String cmd = "COPY FILE %source TODIRECTORY %directory TOMACHINE %local";
+            cmd = cmd.Replace("%source", consoleOutputFile);
+            cmd = cmd.Replace("%directory", new FileInfo(folderForHost).FullName);
+
+            cmd = cmd.Replace("%local", localIP);
+            String response = runStafCmd(hostAdd, "FS", cmd, hostRunLog);
+
+            if (showSTAFCommand)
+            {
+                hostRunLog.Append("getting back console output response: ").AppendLine().Append(response);
+                allRunLog.Append("getting back console output response: ").AppendLine().Append(response);
+                showLog();
+            }
         }
 
         // sync files from local to remote STAF host:
