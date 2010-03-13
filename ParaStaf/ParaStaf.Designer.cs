@@ -47,6 +47,8 @@ namespace ParaStaf
             this.chkNoCheck = new System.Windows.Forms.CheckBox();
             this.chkNoSync = new System.Windows.Forms.CheckBox();
             this.txtConsoleOutput = new System.Windows.Forms.RichTextBox();
+            this.btnSave = new System.Windows.Forms.Button();
+            this.btnQuit = new System.Windows.Forms.Button();
             this.label1 = new System.Windows.Forms.Label();
             this.txtHostAdd = new System.Windows.Forms.TextBox();
             this.btnAddHost = new System.Windows.Forms.Button();
@@ -59,13 +61,11 @@ namespace ParaStaf
             this.btnAddFileBack = new System.Windows.Forms.Button();
             this.txtFilesBack = new System.Windows.Forms.TextBox();
             this.groupBox4 = new System.Windows.Forms.GroupBox();
-            this.btnSave = new System.Windows.Forms.Button();
             this.btnRun = new System.Windows.Forms.Button();
             this.groupBox5 = new System.Windows.Forms.GroupBox();
             this.btnPing = new System.Windows.Forms.Button();
             this.chkShowDebugInfo = new System.Windows.Forms.CheckBox();
             this.btnShowRunLog = new System.Windows.Forms.Button();
-            this.btnQuit = new System.Windows.Forms.Button();
             this.btnQuitWithoutSave = new System.Windows.Forms.Button();
             this.groupBox2.SuspendLayout();
             this.groupBox1.SuspendLayout();
@@ -81,9 +81,10 @@ namespace ParaStaf
             this.lstHostList.ItemHeight = 15;
             this.lstHostList.Location = new System.Drawing.Point(13, 38);
             this.lstHostList.Name = "lstHostList";
-            this.lstHostList.Size = new System.Drawing.Size(152, 124);
+            this.lstHostList.Size = new System.Drawing.Size(137, 124);
             this.lstHostList.TabIndex = 1;
             this.toolTip.SetToolTip(this.lstHostList, "remote STAF hosts to run commands");
+            this.lstHostList.SelectedIndexChanged += new System.EventHandler(this.lstHostList_SelectedIndexChanged);
             // 
             // txtResult
             // 
@@ -101,7 +102,7 @@ namespace ParaStaf
             this.lstRunResult.BackColor = System.Drawing.SystemColors.InactiveCaptionText;
             this.lstRunResult.FormattingEnabled = true;
             this.lstRunResult.ItemHeight = 15;
-            this.lstRunResult.Location = new System.Drawing.Point(183, 38);
+            this.lstRunResult.Location = new System.Drawing.Point(148, 38);
             this.lstRunResult.Name = "lstRunResult";
             this.lstRunResult.Size = new System.Drawing.Size(105, 124);
             this.lstRunResult.TabIndex = 6;
@@ -161,10 +162,9 @@ namespace ParaStaf
             this.lstSyncFileFolders.Size = new System.Drawing.Size(222, 109);
             this.lstSyncFileFolders.TabIndex = 0;
             this.lstSyncFileFolders.DragOver += new System.Windows.Forms.DragEventHandler(this.lstSyncFileFolders_DragOver);
+            this.lstSyncFileFolders.SelectedIndexChanged += new System.EventHandler(this.lstSyncFileFolders_SelectedIndexChanged);
             this.lstSyncFileFolders.DragDrop += new System.Windows.Forms.DragEventHandler(this.lstSyncFileFolders_DragDrop);
-            this.lstSyncFileFolders.MouseDown += new System.Windows.Forms.MouseEventHandler(this.lstSyncFileFolders_MouseDown);
             this.lstSyncFileFolders.DragEnter += new System.Windows.Forms.DragEventHandler(this.lstSyncFileFolders_DragEnter);
-            this.lstSyncFileFolders.DragLeave += new System.EventHandler(this.lstSyncFileFolders_DragLeave);
             // 
             // lstFilesBack
             // 
@@ -178,6 +178,7 @@ namespace ParaStaf
             this.lstFilesBack.TabIndex = 0;
             this.toolTip.SetToolTip(this.lstFilesBack, "Files and Folders to get back after running STAF commands");
             this.lstFilesBack.DragOver += new System.Windows.Forms.DragEventHandler(this.lstFilesBack_DragOver);
+            this.lstFilesBack.SelectedIndexChanged += new System.EventHandler(this.lstFilesBack_SelectedIndexChanged);
             this.lstFilesBack.DragDrop += new System.Windows.Forms.DragEventHandler(this.lstFilesBack_DragDrop);
             this.lstFilesBack.DragEnter += new System.Windows.Forms.DragEventHandler(this.lstFilesBack_DragEnter);
             // 
@@ -256,6 +257,28 @@ namespace ParaStaf
             this.txtConsoleOutput.Text = "";
             this.toolTip.SetToolTip(this.txtConsoleOutput, "Standard out and err for each STAF command run on each host");
             // 
+            // btnSave
+            // 
+            this.btnSave.Location = new System.Drawing.Point(930, 279);
+            this.btnSave.Name = "btnSave";
+            this.btnSave.Size = new System.Drawing.Size(57, 31);
+            this.btnSave.TabIndex = 11;
+            this.btnSave.Text = "&Save ";
+            this.toolTip.SetToolTip(this.btnSave, "Save all inputs");
+            this.btnSave.UseVisualStyleBackColor = true;
+            this.btnSave.Click += new System.EventHandler(this.btnSave_Click);
+            // 
+            // btnQuit
+            // 
+            this.btnQuit.Location = new System.Drawing.Point(1004, 279);
+            this.btnQuit.Name = "btnQuit";
+            this.btnQuit.Size = new System.Drawing.Size(57, 31);
+            this.btnQuit.TabIndex = 23;
+            this.btnQuit.Text = "&Quit";
+            this.toolTip.SetToolTip(this.btnQuit, "Save inputs and quit");
+            this.btnQuit.UseVisualStyleBackColor = true;
+            this.btnQuit.Click += new System.EventHandler(this.btnQuit_Click);
+            // 
             // label1
             // 
             this.label1.AutoSize = true;
@@ -266,16 +289,16 @@ namespace ParaStaf
             // 
             // txtHostAdd
             // 
-            this.txtHostAdd.Location = new System.Drawing.Point(18, 173);
+            this.txtHostAdd.Location = new System.Drawing.Point(13, 173);
             this.txtHostAdd.Name = "txtHostAdd";
-            this.txtHostAdd.Size = new System.Drawing.Size(100, 25);
+            this.txtHostAdd.Size = new System.Drawing.Size(137, 25);
             this.txtHostAdd.TabIndex = 3;
             // 
             // btnAddHost
             // 
-            this.btnAddHost.Location = new System.Drawing.Point(126, 172);
+            this.btnAddHost.Location = new System.Drawing.Point(160, 175);
             this.btnAddHost.Name = "btnAddHost";
-            this.btnAddHost.Size = new System.Drawing.Size(90, 23);
+            this.btnAddHost.Size = new System.Drawing.Size(59, 23);
             this.btnAddHost.TabIndex = 4;
             this.btnAddHost.Text = "&Add";
             this.btnAddHost.UseVisualStyleBackColor = true;
@@ -283,7 +306,7 @@ namespace ParaStaf
             // 
             // btnDelHost
             // 
-            this.btnDelHost.Location = new System.Drawing.Point(222, 172);
+            this.btnDelHost.Location = new System.Drawing.Point(222, 175);
             this.btnDelHost.Name = "btnDelHost";
             this.btnDelHost.Size = new System.Drawing.Size(75, 23);
             this.btnDelHost.TabIndex = 5;
@@ -312,7 +335,7 @@ namespace ParaStaf
             // label3
             // 
             this.label3.AutoSize = true;
-            this.label3.Location = new System.Drawing.Point(185, 14);
+            this.label3.Location = new System.Drawing.Point(153, 17);
             this.label3.Name = "label3";
             this.label3.Size = new System.Drawing.Size(87, 15);
             this.label3.TabIndex = 8;
@@ -377,17 +400,6 @@ namespace ParaStaf
             this.groupBox4.TabStop = false;
             this.groupBox4.Text = "Commands To Run on STAF hosts";
             // 
-            // btnSave
-            // 
-            this.btnSave.Location = new System.Drawing.Point(930, 279);
-            this.btnSave.Name = "btnSave";
-            this.btnSave.Size = new System.Drawing.Size(57, 31);
-            this.btnSave.TabIndex = 11;
-            this.btnSave.Text = "&Save ";
-            this.toolTip.SetToolTip(this.btnSave, "Save all inputs");
-            this.btnSave.UseVisualStyleBackColor = true;
-            this.btnSave.Click += new System.EventHandler(this.btnSave_Click);
-            // 
             // btnRun
             // 
             this.btnRun.Location = new System.Drawing.Point(668, 280);
@@ -439,17 +451,6 @@ namespace ParaStaf
             this.btnShowRunLog.Text = "Show Run &Log";
             this.btnShowRunLog.UseVisualStyleBackColor = true;
             this.btnShowRunLog.Click += new System.EventHandler(this.btnShowRunLog_Click);
-            // 
-            // btnQuit
-            // 
-            this.btnQuit.Location = new System.Drawing.Point(1004, 279);
-            this.btnQuit.Name = "btnQuit";
-            this.btnQuit.Size = new System.Drawing.Size(57, 31);
-            this.btnQuit.TabIndex = 23;
-            this.btnQuit.Text = "&Quit";
-            this.toolTip.SetToolTip(this.btnQuit, "Save inputs and quit");
-            this.btnQuit.UseVisualStyleBackColor = true;
-            this.btnQuit.Click += new System.EventHandler(this.btnQuit_Click);
             // 
             // btnQuitWithoutSave
             // 
