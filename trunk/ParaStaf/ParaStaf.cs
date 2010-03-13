@@ -205,14 +205,14 @@ namespace ParaStaf
             e.Effect = DragDropEffects.Move; 
 
         }
-
-        private void lstSyncFileFolders_MouseDown(object sender, MouseEventArgs e)
-        {
-            if (lstSyncFileFolders.SelectedIndex >= 0)
-            {
-                this.lstSyncFileFolders.DoDragDrop(this.lstSyncFileFolders.SelectedItem, DragDropEffects.Move);
-            }
-        }
+// 
+//         private void lstSyncFileFolders_MouseDown(object sender, MouseEventArgs e)
+//         {
+//             if (lstSyncFileFolders.SelectedIndex >= 0)
+//             {
+//                 this.lstSyncFileFolders.DoDragDrop(this.lstSyncFileFolders.SelectedItem, DragDropEffects.Move);
+//             }
+//         }
 
         private void lstSyncFileFolders_DragEnter(object sender, DragEventArgs e)
         {
@@ -397,11 +397,6 @@ namespace ParaStaf
             allRunLog = new StringBuilder();
             txtConsoleOutput.Text = "";
 
-            String localName = System.Net.Dns.GetHostName();
-
-            // FIXME: does it get the correct IP address ?? (Use should be able to determine the IP add):
-            String localIP = System.Net.Dns.GetHostEntry(localName).AddressList[0].ToString();
-
             String filesGetBackFolder = "FilesGetBack";
 
             int i=0;
@@ -418,8 +413,14 @@ namespace ParaStaf
 
                     foreach (Object host in lstHostList.Items)
                     {
+                        //String localName = System.Net.Dns.GetHostName();
+
+                        // FIXME: does it get the correct IP address ?? (Use should be able to determine the IP add):
+                        //String localIP = System.Net.Dns.GetHostEntry(localName).AddressList[0].ToString();
+                        
                         lstRunResult.Items.Add("running...");
                         String hostAdd = host.ToString();
+                        String localIP = getLocalIPForHost(hostAdd);
                         HostInfo info = new HostInfo(localIP, filesGetBackFolder, hostAdd, i++);
                         
                         processHost(info);
@@ -456,8 +457,12 @@ namespace ParaStaf
                     // assign one thread to drive each STAF host 
                     foreach (Object host in lstHostList.Items)
                     {
-                       
+                        // FIXME: does it get the correct IP address ?? (Use should be able to determine the IP add):
+                        //String localIP = System.Net.Dns.GetHostEntry(localName).AddressList[0].ToString();
+                                               
                         String hostAdd = host.ToString();
+                        String localIP = getLocalIPForHost(hostAdd);
+
                         HostInfo info = new HostInfo(localIP, filesGetBackFolder, hostAdd, i++);
 
                         threads[m] = new Thread(processHost);
@@ -483,6 +488,90 @@ namespace ParaStaf
             }
 
 
+        }
+
+        private Regex regex = new Regex(@"\b(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b", RegexOptions.Compiled);
+
+        public bool matchIPAddress(String ipString)
+        {
+            return regex.IsMatch(ipString);
+        }
+
+        public int findCommonPrefixLength(String a, String b)
+        {
+            int commonStringLength = 0;
+
+            //find longest common string length of address and hostAddress:
+            int m = 0;
+            int n = 0;
+            while (m < a.Length && n < b.Length)
+            {
+                if (a[m] == b[n])
+                {
+                    m++;
+                    n++;
+                    continue;
+                }
+                else
+                {                    
+                    break;
+                }
+            }
+            commonStringLength = Math.Min(m, n);
+
+            return commonStringLength;
+        }
+
+        // there may be several IP addresses for local host, especially when virtual machine installed.
+        // try to get local IP address which has the longest common prefix with host machine's IP (same network)
+        public String getLocalIPForHost(String hostName)
+        {
+            String hostIPAddress = hostName;
+            if(!matchIPAddress(hostName))
+            {
+                try
+                {
+                    hostIPAddress = System.Net.Dns.GetHostEntry(hostName).AddressList[0].ToString();
+                }
+                catch (System.Exception ex)
+                {
+                    allRunLog.Append(ex.ToString()).AppendLine();
+                    showLog();
+                }
+                
+            }
+
+            //To test: host, ip bridged/hosted in virtual machine
+            String localName = System.Net.Dns.GetHostName();
+            System.Net.IPAddress[] localAddresses = System.Net.Dns.GetHostEntry(localName).AddressList;
+
+            // default local IP to the first IP address of local machine:
+            String localIP = localAddresses[0].ToString();
+
+            int indexOfMaxSimilarAddress = -1;
+            int maxCommonPrefixLen = 0;
+
+            // find the loal IP address which has the longest prefix with a host address:
+            for(int i=0;i< localAddresses.Length; i++)
+            {
+                String localAddress = localAddresses[i].ToString();
+
+                int commonPrefixLen = findCommonPrefixLength(localAddress, hostIPAddress);
+                if (commonPrefixLen > maxCommonPrefixLen)
+                {
+                    maxCommonPrefixLen = commonPrefixLen;
+                    indexOfMaxSimilarAddress = i;
+                }
+
+            }
+
+            if(indexOfMaxSimilarAddress>=0)
+            {
+                // set the local IP to the Address which has longest common prefix with hostAddress:
+                localIP = localAddresses[indexOfMaxSimilarAddress].ToString();
+            }
+
+            return localIP;
         }
 
         class HostInfo
@@ -790,15 +879,16 @@ namespace ParaStaf
 
                         String outFilePrefix = inputCmd;
                         String namePart = inputCmd;
-
-                        if (inputCmd.IndexOf('\\') > 0 && inputCmd.IndexOf('\\') < inputCmd.Length)
+                        
+                        // get the name part of the cmd (without path and arguments), for naming console log file of the cmd
+                        if (inputCmd.IndexOf(' ') > 0)
                         {
-                            namePart = inputCmd.Substring(inputCmd.LastIndexOf('\\') + 1);
+                            namePart = inputCmd.Substring(0, namePart.IndexOf(' '));
                         }
 
-                        if (namePart.IndexOf(' ') > 0)
+                        if (namePart.IndexOf('\\') > 0 && namePart.IndexOf('\\') < namePart.Length)
                         {
-                            outFilePrefix = namePart.Substring(0, namePart.IndexOf(' '));
+                            outFilePrefix = namePart.Substring(namePart.LastIndexOf('\\') + 1);
                         }
                         else
                         {
@@ -909,8 +999,18 @@ namespace ParaStaf
             String logOnLocal = new FileInfo(folderForHost).FullName + "\\" + new FileInfo(consoleOutputFile).Name;
             if (File.Exists(logOnLocal))
             {
-                String consoleOutput = new StreamReader(logOnLocal).ReadToEnd();
-                hostOutputMap.Add(hostAdd, consoleOutput);
+                String consoleOutput = "";
+
+                //fix bug of when running 2 time of a command, 
+                // will fail to delete folder by IOException of "The process cannot access file 'xxx.txt' 
+                // because it is used by another process
+                using (StreamReader reader = new StreamReader(logOnLocal))
+                {
+                    //StreamReader reader = new StreamReader(logOnLocal);
+                    consoleOutput = reader.ReadToEnd();
+                    hostOutputMap.Add(hostAdd, consoleOutput);
+                }
+                
 
                 if (!chkNoCheck.Checked)  // check the console output if "No Check" not selected:
                 {
@@ -1165,6 +1265,36 @@ namespace ParaStaf
         {
             this.quitWithoutSave = true;
             this.Close();
+        }
+
+        private void lstHostList_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if(lstHostList.SelectedIndex>=0)
+            {
+                txtHostAdd.Text = lstHostList.SelectedItem.ToString();
+            }
+        }
+
+        private void lstSyncFileFolders_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if(lstSyncFileFolders.SelectedIndex>=0)
+            {
+                txtFileFolderName.Text = lstSyncFileFolders.SelectedItem.ToString();
+            }
+        }
+
+        private void lstFilesBack_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if(lstFilesBack.SelectedIndex>=0)
+            {
+                txtFilesBack.Text = lstFilesBack.SelectedItem.ToString();
+            }
+        }
+
+        private void button1_Click(object sender, EventArgs e)
+        {
+            String address = txtResult.Text.Trim();
+            txtConsoleOutput.Text = getLocalIPForHost(address);
         } // end of func
 
     }

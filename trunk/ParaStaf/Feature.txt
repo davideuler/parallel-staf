@@ -27,6 +27,8 @@ When type in more than 1 OS commands, only the last one's result is checked, but
 
 2.Bug fix of thread safety on enabling "Add" and "Delete" host button.
 
+3.Auto detect local machine IP address
+
 
 *Features of Parallel STAF V1.1 *:
 
